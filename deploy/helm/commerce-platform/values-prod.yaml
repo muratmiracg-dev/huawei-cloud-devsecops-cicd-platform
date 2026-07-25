@@ -1,0 +1,28 @@
+global:
+  environment: production
+
+catalog:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 65
+  podDisruptionBudget:
+    enabled: true
+
+orders:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 65
+  podDisruptionBudget:
+    enabled: true
+
+ingress:
+  enabled: true
+  catalogHost: catalog.example.com
+  ordersHost: orders.example.com
+

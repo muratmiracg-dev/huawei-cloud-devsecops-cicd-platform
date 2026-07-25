@@ -1,0 +1,26 @@
+global:
+  environment: staging
+
+catalog:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  podDisruptionBudget:
+    enabled: true
+
+orders:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  podDisruptionBudget:
+    enabled: true
+
+ingress:
+  enabled: true
+  catalogHost: catalog.staging.example.com
+  ordersHost: orders.staging.example.com
+

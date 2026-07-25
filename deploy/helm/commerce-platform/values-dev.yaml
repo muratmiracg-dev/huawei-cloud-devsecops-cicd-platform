@@ -1,0 +1,21 @@
+global:
+  environment: development
+
+catalog:
+  replicaCount: 1
+  seedData: "true"
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+orders:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+ingress:
+  enabled: false
+

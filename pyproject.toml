@@ -1,0 +1,36 @@
+[project]
+name = "huawei-cloud-devsecops-platform"
+version = "0.1.0"
+description = "Reference microservices for a Huawei Cloud DevSecOps CI/CD portfolio project"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["infra", "deploy"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+pythonpath = ["services/catalog", "services/orders"]
+testpaths = ["services/catalog/tests", "services/orders/tests"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--cov=catalog_service",
+  "--cov=orders_service",
+  "--cov-report=term-missing",
+  "--cov-report=xml",
+  "--cov-fail-under=75",
+]
+markers = [
+  "unit: fast isolated tests",
+  "integration: tests that exercise service boundaries",
+]
+

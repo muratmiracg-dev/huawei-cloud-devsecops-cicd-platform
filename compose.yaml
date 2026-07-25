@@ -1,0 +1,97 @@
+name: commerce-platform
+
+services:
+  catalog-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${CATALOG_DB_NAME:-catalog}
+      POSTGRES_USER: ${CATALOG_DB_USER:-catalog_user}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog_dev_only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CATALOG_DB_USER:-catalog_user} -d ${CATALOG_DB_NAME:-catalog}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - catalog-db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  orders-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${ORDERS_DB_NAME:-orders}
+      POSTGRES_USER: ${ORDERS_DB_USER:-orders_user}
+      POSTGRES_PASSWORD: ${ORDERS_DB_PASSWORD:-orders_dev_only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ORDERS_DB_USER:-orders_user} -d ${ORDERS_DB_NAME:-orders}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - orders-db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  catalog:
+    build:
+      context: ./services/catalog
+    environment:
+      CATALOG_ENVIRONMENT: development
+      CATALOG_DATABASE_URL: postgresql+psycopg://${CATALOG_DB_USER:-catalog_user}:${CATALOG_DB_PASSWORD:-catalog_dev_only}@catalog-db:5432/${CATALOG_DB_NAME:-catalog}
+      CATALOG_SEED_DATA: "true"
+      CATALOG_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${CATALOG_PORT:-8001}:8000"
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
+  orders:
+    build:
+      context: ./services/orders
+    environment:
+      ORDERS_ENVIRONMENT: development
+      ORDERS_DATABASE_URL: postgresql+psycopg://${ORDERS_DB_USER:-orders_user}:${ORDERS_DB_PASSWORD:-orders_dev_only}@orders-db:5432/${ORDERS_DB_NAME:-orders}
+      ORDERS_CATALOG_BASE_URL: http://catalog:8000
+      ORDERS_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${ORDERS_PORT:-8002}:8000"
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  catalog-db-data:
+  orders-db-data:
+

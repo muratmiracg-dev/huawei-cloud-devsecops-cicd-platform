@@ -1,0 +1,41 @@
+# Requires the Prometheus Operator ServiceMonitor CRD.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: commerce-platform-catalog
+  labels:
+    app.kubernetes.io/part-of: commerce-platform
+spec:
+  namespaceSelector:
+    matchNames:
+      - commerce-prod
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: commerce-platform
+      app.kubernetes.io/component: catalog
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: commerce-platform-orders
+  labels:
+    app.kubernetes.io/part-of: commerce-platform
+spec:
+  namespaceSelector:
+    matchNames:
+      - commerce-prod
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: commerce-platform
+      app.kubernetes.io/component: orders
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+

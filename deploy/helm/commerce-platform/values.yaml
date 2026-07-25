@@ -1,0 +1,76 @@
+global:
+  environment: development
+  imagePullSecrets: []
+  existingSecret: commerce-platform-secrets
+
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+
+catalog:
+  replicaCount: 1
+  image:
+    repository: swr.example.com/portfolio/catalog-service
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  seedData: "false"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
+orders:
+  replicaCount: 1
+  image:
+    repository: swr.example.com/portfolio/orders-service
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  catalogHost: catalog.example.com
+  ordersHost: orders.example.com
+  tls: []
+
+networkPolicy:
+  enabled: true
+  ingressNamespaceLabel:
+    kubernetes.io/metadata.name: ingress-nginx
+

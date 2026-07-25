@@ -1,0 +1,10 @@
+1. Confirm the workloads:
+   kubectl get deploy,pod,svc -l app.kubernetes.io/instance={{ .Release.Name }}
+
+2. Confirm readiness:
+   kubectl port-forward svc/{{ include "commerce-platform.fullname" . }}-catalog 8001:80
+   kubectl port-forward svc/{{ include "commerce-platform.fullname" . }}-orders 8002:80
+
+3. Run the smoke test:
+   python scripts/smoke_test.py
+
