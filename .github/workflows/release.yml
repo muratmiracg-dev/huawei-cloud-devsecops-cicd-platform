@@ -1,0 +1,109 @@
+name: Build and Deploy to Huawei Cloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        type: choice
+        required: true
+        default: development
+        options:
+          - development
+          - staging
+          - production
+      image_tag:
+        description: Immutable image tag
+        required: true
+        default: manual
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, scan and publish images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        service:
+          - name: catalog-service
+            context: services/catalog
+          - name: orders-service
+            context: services/orders
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Authenticate to Huawei SWR
+        env:
+          SWR_PASSWORD: ${{ secrets.SWR_PASSWORD }}
+        run: printf '%s' "$SWR_PASSWORD" | docker login "${{ secrets.SWR_REGISTRY }}" --username "${{ secrets.SWR_USERNAME }}" --password-stdin
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service.context }}
+          load: true
+          push: false
+          tags: ${{ secrets.SWR_REGISTRY }}/${{ secrets.SWR_ORGANIZATION }}/${{ matrix.service.name }}:${{ inputs.image_tag }}
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ secrets.SWR_REGISTRY }}/${{ secrets.SWR_ORGANIZATION }}/${{ matrix.service.name }}:${{ inputs.image_tag }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Push verified image
+        run: docker push "${{ secrets.SWR_REGISTRY }}/${{ secrets.SWR_ORGANIZATION }}/${{ matrix.service.name }}:${{ inputs.image_tag }}"
+
+  deploy:
+    name: Deploy to CCE
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure CCE access
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.CCE_KUBECONFIG_BASE64 }}
+        run: |
+          printf '%s' "$KUBE_CONFIG_DATA" | base64 --decode > "$RUNNER_TEMP/kubeconfig"
+          chmod 600 "$RUNNER_TEMP/kubeconfig"
+
+      - name: Deploy verified images
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+          REGISTRY: ${{ secrets.SWR_REGISTRY }}
+          ORGANIZATION: ${{ secrets.SWR_ORGANIZATION }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          TARGET_ENV: ${{ inputs.environment }}
+        run: |
+          case "$TARGET_ENV" in
+            development) VALUES_FILE="values-dev.yaml"; NAMESPACE="commerce-dev" ;;
+            staging) VALUES_FILE="values-staging.yaml"; NAMESPACE="commerce-staging" ;;
+            production) VALUES_FILE="values-prod.yaml"; NAMESPACE="commerce-prod" ;;
+          esac
+
+          helm upgrade --install commerce-platform deploy/helm/commerce-platform \
+            --namespace "$NAMESPACE" \
+            --create-namespace \
+            --atomic \
+            --timeout 5m \
+            --values "deploy/helm/commerce-platform/$VALUES_FILE" \
+            --set "catalog.image.repository=$REGISTRY/$ORGANIZATION/catalog-service" \
+            --set "catalog.image.tag=$IMAGE_TAG" \
+            --set "orders.image.repository=$REGISTRY/$ORGANIZATION/orders-service" \
+            --set "orders.image.tag=$IMAGE_TAG"

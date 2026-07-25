@@ -1,0 +1,30 @@
+{{- if .Values.catalog.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "commerce-platform.fullname" . }}-catalog
+  labels:
+    {{- include "commerce-platform.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.catalog.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: catalog
+---
+{{- end }}
+{{- if .Values.orders.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "commerce-platform.fullname" . }}-orders
+  labels:
+    {{- include "commerce-platform.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.orders.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: orders
+{{- end }}
+

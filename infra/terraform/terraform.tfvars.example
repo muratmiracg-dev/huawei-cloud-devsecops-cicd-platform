@@ -1,0 +1,14 @@
+region             = "YOUR_HUAWEI_REGION"
+environment        = "development"
+cluster_flavor_id  = "VERIFY_IN_SELECTED_REGION"
+cluster_version    = "VERIFY_IN_SELECTED_REGION"
+node_flavor_id     = "VERIFY_IN_SELECTED_REGION"
+node_os            = "VERIFY_IN_SELECTED_REGION"
+key_pair_name      = "YOUR_EXISTING_KPS_KEY_PAIR"
+swr_organization   = "YOUR_UNIQUE_SWR_ORGANIZATION"
+
+tags = {
+  owner       = "murat-mirac-gedik"
+  cost_center = "portfolio"
+}
+
