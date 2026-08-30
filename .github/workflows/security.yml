@@ -2,10 +2,12 @@ name: Security Gates
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
   schedule:
     - cron: "17 4 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,7 +20,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Scan dependencies, secrets and configuration
         uses: aquasecurity/trivy-action@v0.36.0
@@ -34,22 +36,25 @@ jobs:
 
       - name: Upload SARIF
         if: always() && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
 
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: python
+          queries: security-extended
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:python
