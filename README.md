@@ -152,6 +152,10 @@ curl -X POST http://localhost:8002/api/v1/orders \
   -d '{"product_id":1,"quantity":1}'
 ```
 
+Repeating the same key and payload returns the original order with HTTP `200`.
+Reusing a key for a different product or quantity returns HTTP `409`, preventing a
+retry or client bug from silently receiving an order that does not match its request.
+
 ## Kubernetes and Helm
 
 The Helm chart includes:

@@ -41,6 +41,11 @@ async def add_order(
     request_key = idempotency_key or str(uuid4())
     existing = repository.get_by_idempotency_key(database, request_key)
     if existing is not None:
+        if existing.product_id != payload.product_id or existing.quantity != payload.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Idempotency key has already been used with a different order payload",
+            )
         response.status_code = status.HTTP_200_OK
         return existing
 
