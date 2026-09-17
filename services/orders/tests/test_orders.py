@@ -30,6 +30,30 @@ def test_idempotency_key_returns_original_order(client: TestClient) -> None:
     assert first.json()["id"] == second.json()["id"]
 
 
+def test_idempotency_key_rejects_different_order_payload(client: TestClient) -> None:
+    headers = {"X-Idempotency-Key": "checkout-conflict-0001"}
+
+    first = client.post(
+        "/api/v1/orders",
+        headers=headers,
+        json={"product_id": 1, "quantity": 1},
+    )
+    conflict = client.post(
+        "/api/v1/orders",
+        headers=headers,
+        json={"product_id": 2, "quantity": 3},
+    )
+
+    assert first.status_code == 201
+    assert conflict.status_code == 409
+    assert conflict.json()["detail"] == (
+        "Idempotency key has already been used with a different order payload"
+    )
+    orders = client.get("/api/v1/orders").json()
+    matching_orders = [order for order in orders if order["id"] == first.json()["id"]]
+    assert matching_orders == [first.json()]
+
+
 def test_list_and_get_order(client: TestClient) -> None:
     created = client.post(
         "/api/v1/orders",
