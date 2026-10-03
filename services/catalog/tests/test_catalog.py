@@ -64,3 +64,22 @@ def test_metrics_endpoint(client: TestClient) -> None:
     response = client.get("/metrics")
     assert response.status_code == 200
     assert "catalog_http_requests_total" in response.text
+
+
+def test_invalid_reservation_types_do_not_change_stock(client: TestClient) -> None:
+    product = create_product(client, sku="STRICT-RESERVE", stock=8)
+    for quantity in (True, False, "2", 1.5, 2.0):
+        response = client.post(
+            f"/api/v1/products/{product['id']}/reserve", json={"quantity": quantity}
+        )
+        assert response.status_code == 422
+        assert client.get(f"/api/v1/products/{product['id']}").json()["stock"] == 8
+
+
+def test_invalid_stock_types_are_rejected(client: TestClient) -> None:
+    for stock in (True, False, "2", 1.5, 2.0):
+        response = client.post(
+            "/api/v1/products",
+            json={"sku": "STRICT-STOCK", "name": "Product", "price": "12.50", "stock": stock},
+        )
+        assert response.status_code == 422
