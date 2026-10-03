@@ -288,3 +288,7 @@ GitHub CI additionally validates:
 Huawei Cloud DevOps Bootcamp participant with hands-on experience in Docker,
 SWR, CCE, Kubernetes YAML, Secret/ConfigMap, persistent storage, and AOM-based
 operations monitoring.
+
+### Input validation contract
+
+Catalog stock and reservation quantity fields require JSON integers. Booleans, numeric strings, and floats are rejected with HTTP 422 before stock is changed.
