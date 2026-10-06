@@ -18,6 +18,17 @@ def test_create_order(client: TestClient) -> None:
     assert response.json()["status"] == "confirmed"
 
 
+def test_order_rejects_coerced_identifiers_and_quantities(client: TestClient) -> None:
+    for payload in (
+        {"product_id": True, "quantity": 1},
+        {"product_id": 1.0, "quantity": 1},
+        {"product_id": 1, "quantity": True},
+        {"product_id": 1, "quantity": 1.5},
+    ):
+        response = client.post("/api/v1/orders", json=payload)
+        assert response.status_code == 422
+
+
 def test_idempotency_key_returns_original_order(client: TestClient) -> None:
     payload = {"product_id": 2, "quantity": 1}
     headers = {"X-Idempotency-Key": "checkout-idempotent-0001"}

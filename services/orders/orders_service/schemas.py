@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class OrderCreate(BaseModel):
-    product_id: int = Field(gt=0)
-    quantity: int = Field(gt=0, le=100)
+    product_id: int = Field(gt=0, strict=True)
+    quantity: int = Field(gt=0, le=100, strict=True)
 
 
 class OrderRead(OrderCreate):

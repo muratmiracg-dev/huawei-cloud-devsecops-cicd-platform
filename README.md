@@ -291,4 +291,6 @@ operations monitoring.
 
 ### Input validation contract
 
-Catalog stock and reservation quantity fields require JSON integers. Booleans, numeric strings, and floats are rejected with HTTP 422 before stock is changed.
+Catalog stock, reservation quantity, order product ID, and order quantity fields require JSON
+integers. Booleans, numeric strings, and floats are rejected with HTTP 422 before stock is
+changed or an order is created.
