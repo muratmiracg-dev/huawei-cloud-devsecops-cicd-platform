@@ -1,11 +1,14 @@
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
+ProductName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=160)]
 
 
 class ProductCreate(BaseModel):
     sku: str = Field(min_length=2, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
-    name: str = Field(min_length=2, max_length=160)
+    name: ProductName
     price: Decimal = Field(gt=0, decimal_places=2)
     stock: int = Field(ge=0, le=1_000_000, strict=True)
 

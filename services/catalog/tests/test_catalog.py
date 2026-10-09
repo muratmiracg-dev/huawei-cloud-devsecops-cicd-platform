@@ -83,3 +83,18 @@ def test_invalid_stock_types_are_rejected(client: TestClient) -> None:
             json={"sku": "STRICT-STOCK", "name": "Product", "price": "12.50", "stock": stock},
         )
         assert response.status_code == 422
+
+
+def test_product_names_are_trimmed_and_blank_names_rejected(client: TestClient) -> None:
+    blank = client.post(
+        "/api/v1/products",
+        json={"sku": "BLANK-NAME", "name": "   ", "price": "12.50", "stock": 2},
+    )
+    assert blank.status_code == 422
+
+    created = client.post(
+        "/api/v1/products",
+        json={"sku": "TRIMMED-NAME", "name": "  Test Product  ", "price": "12.50", "stock": 2},
+    )
+    assert created.status_code == 201
+    assert created.json()["name"] == "Test Product"
