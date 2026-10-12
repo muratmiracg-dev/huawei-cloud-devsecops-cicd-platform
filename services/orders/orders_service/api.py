@@ -38,6 +38,13 @@ async def add_order(
         Header(alias="X-Idempotency-Key", min_length=8, max_length=128),
     ] = None,
 ) -> OrderRead:
+    if idempotency_key is not None:
+        idempotency_key = idempotency_key.strip()
+        if len(idempotency_key) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Idempotency key must contain at least 8 non-whitespace characters",
+            )
     request_key = idempotency_key or str(uuid4())
     existing = repository.get_by_idempotency_key(database, request_key)
     if existing is not None:
