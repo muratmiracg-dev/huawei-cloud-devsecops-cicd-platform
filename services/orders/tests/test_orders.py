@@ -41,6 +41,25 @@ def test_idempotency_key_returns_original_order(client: TestClient) -> None:
     assert first.json()["id"] == second.json()["id"]
 
 
+def test_idempotency_key_is_trimmed_and_blank_values_are_rejected(client: TestClient) -> None:
+    payload = {"product_id": 1, "quantity": 1}
+    first = client.post(
+        "/api/v1/orders", headers={"X-Idempotency-Key": "  checkout-trimmed-01  "}, json=payload
+    )
+    second = client.post(
+        "/api/v1/orders", headers={"X-Idempotency-Key": "checkout-trimmed-01"}, json=payload
+    )
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    assert (
+        client.post(
+            "/api/v1/orders", headers={"X-Idempotency-Key": "        "}, json=payload
+        ).status_code
+        == 422
+    )
+
+
 def test_idempotency_key_rejects_different_order_payload(client: TestClient) -> None:
     headers = {"X-Idempotency-Key": "checkout-conflict-0001"}
 
