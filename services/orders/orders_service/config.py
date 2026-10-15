@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,7 +9,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "sqlite:///./orders.db"
     catalog_base_url: str = "http://localhost:8001"
-    catalog_timeout_seconds: float = 3.0
+    catalog_timeout_seconds: float = Field(default=3.0, gt=0, le=60, allow_inf_nan=False)
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
