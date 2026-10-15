@@ -39,6 +39,8 @@ flowchart TD
 - Workloads run as a non-root user with a read-only root filesystem.
 - NetworkPolicy limits inbound and outbound workload traffic.
 - AOM and Prometheus-compatible metrics provide operational feedback.
+- Orders-to-catalog calls enforce a finite timeout in the `(0, 60]` second range so invalid
+  configuration cannot disable the dependency boundary or create excessive request stalls.
 
 ## Environment separation
 
