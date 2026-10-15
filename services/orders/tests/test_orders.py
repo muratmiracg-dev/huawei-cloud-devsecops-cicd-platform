@@ -1,9 +1,18 @@
+import pytest
 from fastapi.testclient import TestClient
+from orders_service.config import Settings
+from pydantic import ValidationError
 
 
 def test_health_endpoints(client: TestClient) -> None:
     assert client.get("/health/live").json()["status"] == "alive"
     assert client.get("/health/ready").json()["status"] == "ready"
+
+
+@pytest.mark.parametrize("timeout", [0, -1, 61, float("inf"), float("nan")])
+def test_catalog_timeout_rejects_unsafe_values(timeout: float) -> None:
+    with pytest.raises(ValidationError):
+        Settings(catalog_timeout_seconds=timeout)
 
 
 def test_create_order(client: TestClient) -> None:
