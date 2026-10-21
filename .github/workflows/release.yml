@@ -53,7 +53,7 @@ jobs:
           tags: ${{ secrets.SWR_REGISTRY }}/${{ secrets.SWR_ORGANIZATION }}/${{ matrix.service.name }}:${{ inputs.image_tag }}
 
       - name: Scan image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ secrets.SWR_REGISTRY }}/${{ secrets.SWR_ORGANIZATION }}/${{ matrix.service.name }}:${{ inputs.image_tag }}
           severity: HIGH,CRITICAL
