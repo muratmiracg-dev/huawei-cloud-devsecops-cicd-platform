@@ -45,7 +45,7 @@ jobs:
         run: printf '%s' "$SWR_PASSWORD" | docker login "${{ secrets.SWR_REGISTRY }}" --username "${{ secrets.SWR_USERNAME }}" --password-stdin
 
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.service.context }}
           load: true
