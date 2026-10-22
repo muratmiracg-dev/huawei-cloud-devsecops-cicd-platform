@@ -23,6 +23,19 @@ def test_create_and_list_products(client: TestClient) -> None:
     assert any(product["id"] == created["id"] for product in response.json())
 
 
+def test_product_listing_has_bounded_pagination(client: TestClient) -> None:
+    existing_count = len(client.get("/api/v1/products", params={"limit": 100}).json())
+    create_product(client, sku="PAGE-001")
+    second = create_product(client, sku="PAGE-002")
+    response = client.get(
+        "/api/v1/products", params={"limit": 1, "offset": existing_count + 1}
+    )
+    assert response.status_code == 200
+    assert [product["id"] for product in response.json()] == [second["id"]]
+    assert client.get("/api/v1/products", params={"limit": 101}).status_code == 422
+    assert client.get("/api/v1/products", params={"offset": -1}).status_code == 422
+
+
 def test_duplicate_sku_is_rejected(client: TestClient) -> None:
     create_product(client, sku="UNIQUE-001")
     response = client.post(
