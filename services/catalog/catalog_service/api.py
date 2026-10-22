@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from catalog_service import repository
@@ -17,8 +17,12 @@ Database = Annotated[Session, Depends(get_db)]
 
 
 @router.get("", response_model=list[ProductRead])
-def products(database: Database) -> list[ProductRead]:
-    return repository.list_products(database)
+def products(
+    database: Database,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[ProductRead]:
+    return repository.list_products(database, limit=limit, offset=offset)
 
 
 @router.get("/{product_id}", response_model=ProductRead)
