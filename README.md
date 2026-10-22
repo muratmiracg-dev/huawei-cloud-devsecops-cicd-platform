@@ -17,6 +17,7 @@ image distribution, controlled CCE releases, and AOM operational verification.
 The reference application contains two FastAPI services:
 
 - **Catalog Service** — product catalog and inventory reservation
+- **Bounded catalog reads** — validated limit/offset pagination caps product-list responses at 100 rows to protect service memory and latency
 - **Orders Service** — idempotent order creation and catalog integration
 
 The application is intentionally compact. The primary engineering outcome is the
