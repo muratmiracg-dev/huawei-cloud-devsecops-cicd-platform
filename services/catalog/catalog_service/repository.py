@@ -18,8 +18,8 @@ class InsufficientStockError(ValueError):
     pass
 
 
-def list_products(database: Session) -> list[Product]:
-    return list(database.scalars(select(Product).order_by(Product.id)))
+def list_products(database: Session, *, limit: int, offset: int) -> list[Product]:
+    return list(database.scalars(select(Product).order_by(Product.id).offset(offset).limit(limit)))
 
 
 def get_product(database: Session, product_id: int) -> Product:
