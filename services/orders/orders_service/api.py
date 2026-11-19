@@ -10,7 +10,7 @@ from orders_service import repository
 from orders_service.catalog_client import CatalogClient, CatalogDependency, CatalogServiceError
 from orders_service.database import get_db
 from orders_service.metrics import ORDER_COUNT
-from orders_service.schemas import OrderCreate, OrderRead
+from orders_service.schemas import OrderCreate, OrderRead, ReservationResult
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
@@ -77,7 +77,7 @@ async def add_order(
         # Hand back the reserved units and answer as an idempotent replay instead of
         # failing with 500 and leaving the stock reserved twice.
         database.rollback()
-        await _release_quietly(catalog, payload.product_id, payload.quantity)
+        await _release_quietly(catalog, reservation)
         existing = repository.get_by_idempotency_key(database, request_key)
         if existing is None:
             raise
@@ -90,19 +90,22 @@ async def add_order(
         return existing
     except Exception:
         database.rollback()
-        await _release_quietly(catalog, payload.product_id, payload.quantity)
+        await _release_quietly(catalog, reservation)
         raise
     ORDER_COUNT.inc()
     return created
 
 
-async def _release_quietly(catalog: CatalogClient, product_id: int, quantity: int) -> None:
-    """Best-effort compensation; a failed release must not hide the original error."""
+async def _release_quietly(catalog: CatalogClient, reservation: ReservationResult) -> None:
+    """Best-effort compensation; a failed release must not hide the original error.
+
+    Releases exactly what the catalog confirmed it reserved, so neither the
+    compensation call nor the log line is built from raw request input.
+    """
     try:
-        await catalog.release(product_id, quantity)
+        await catalog.release(reservation.product_id, reservation.quantity)
     except CatalogServiceError:
         logger.warning(
-            "Could not release %s units of product %s after a failed order write",
-            quantity,
-            product_id,
+            "Could not release a catalog reservation after a failed order write",
+            extra={"product_id": reservation.product_id, "quantity": reservation.quantity},
         )
