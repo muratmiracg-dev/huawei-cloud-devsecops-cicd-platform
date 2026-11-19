@@ -1,15 +1,18 @@
+import logging
 from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from orders_service import repository
-from orders_service.catalog_client import CatalogDependency, CatalogServiceError
+from orders_service.catalog_client import CatalogClient, CatalogDependency, CatalogServiceError
 from orders_service.database import get_db
 from orders_service.metrics import ORDER_COUNT
 from orders_service.schemas import OrderCreate, OrderRead
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/orders", tags=["orders"])
 Database = Annotated[Session, Depends(get_db)]
 
@@ -61,12 +64,45 @@ async def add_order(
     except CatalogServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
-    created = repository.create_order(
-        database,
-        idempotency_key=request_key,
-        product_id=payload.product_id,
-        quantity=payload.quantity,
-        unit_price=reservation.unit_price,
-    )
+    try:
+        created = repository.create_order(
+            database,
+            idempotency_key=request_key,
+            product_id=payload.product_id,
+            quantity=payload.quantity,
+            unit_price=reservation.unit_price,
+        )
+    except IntegrityError:
+        # A concurrent request with the same idempotency key stored its order first.
+        # Hand back the reserved units and answer as an idempotent replay instead of
+        # failing with 500 and leaving the stock reserved twice.
+        database.rollback()
+        await _release_quietly(catalog, payload.product_id, payload.quantity)
+        existing = repository.get_by_idempotency_key(database, request_key)
+        if existing is None:
+            raise
+        if existing.product_id != payload.product_id or existing.quantity != payload.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Idempotency key has already been used with a different order payload",
+            ) from None
+        response.status_code = status.HTTP_200_OK
+        return existing
+    except Exception:
+        database.rollback()
+        await _release_quietly(catalog, payload.product_id, payload.quantity)
+        raise
     ORDER_COUNT.inc()
     return created
+
+
+async def _release_quietly(catalog: CatalogClient, product_id: int, quantity: int) -> None:
+    """Best-effort compensation; a failed release must not hide the original error."""
+    try:
+        await catalog.release(product_id, quantity)
+    except CatalogServiceError:
+        logger.warning(
+            "Could not release %s units of product %s after a failed order write",
+            quantity,
+            product_id,
+        )

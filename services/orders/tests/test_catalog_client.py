@@ -129,3 +129,29 @@ def test_order_api_returns_502_not_500_for_html_catalog_response() -> None:
 
     assert response.status_code == 502
     assert response.json() == {"detail": "Invalid reservation response from catalog service"}
+
+
+def test_release_posts_quantity_and_reports_failures() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    catalog = CatalogClient("http://catalog.test", 5, httpx.MockTransport(handler))
+    asyncio.run(catalog.release(7, 2))
+    assert str(seen[0].url) == "http://catalog.test/api/v1/products/7/release"
+    assert json.loads(seen[0].content) == {"quantity": 2}
+
+    failing = CatalogClient(
+        "http://catalog.test", 5, httpx.MockTransport(lambda request: httpx.Response(404))
+    )
+    with pytest.raises(CatalogServiceError):
+        asyncio.run(failing.release(7, 2))
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("down")
+
+    offline = CatalogClient("http://catalog.test", 5, httpx.MockTransport(unreachable))
+    with pytest.raises(CatalogServiceError, match="unavailable"):
+        asyncio.run(offline.release(7, 2))

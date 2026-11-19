@@ -66,6 +66,23 @@ class CatalogClient:
             raise CatalogServiceError("Catalog reservation does not match the requested item")
         return reservation
 
+    async def release(self, product_id: int, quantity: int) -> None:
+        """Return units of a reservation that did not become an order."""
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=self.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.post(
+                    f"/api/v1/products/{product_id}/release",
+                    json={"quantity": quantity},
+                )
+        except httpx.RequestError as exc:
+            raise CatalogServiceError("Catalog service is unavailable") from exc
+        if response.is_error:
+            raise CatalogServiceError("Catalog could not release the reservation")
+
 
 def get_catalog_client() -> CatalogClient:
     settings = get_settings()
