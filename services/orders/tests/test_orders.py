@@ -126,3 +126,44 @@ def test_metrics_endpoint(client: TestClient) -> None:
     response = client.get("/metrics")
     assert response.status_code == 200
     assert "orders_http_requests_total" in response.text
+
+
+def test_concurrent_duplicate_key_returns_existing_order_and_releases_stock(
+    client: TestClient, monkeypatch
+) -> None:
+    """Two requests with one key both pass the lookup before either stores its order."""
+    from conftest import FakeCatalogClient
+    from orders_service import repository
+
+    headers = {"X-Idempotency-Key": "race-key-0001"}
+    first = client.post("/api/v1/orders", json={"product_id": 7, "quantity": 2}, headers=headers)
+    assert first.status_code == 201
+
+    real_lookup = repository.get_by_idempotency_key
+    calls = {"count": 0}
+
+    def lookup_misses_once(database, key):
+        calls["count"] += 1
+        return None if calls["count"] == 1 else real_lookup(database, key)
+
+    monkeypatch.setattr(repository, "get_by_idempotency_key", lookup_misses_once)
+    FakeCatalogClient.releases.clear()
+    second = client.post("/api/v1/orders", json={"product_id": 7, "quantity": 2}, headers=headers)
+
+    assert second.status_code == 200
+    assert second.json()["id"] == first.json()["id"]
+    assert FakeCatalogClient.releases == [(7, 2)]
+
+
+def test_failed_order_write_releases_the_reservation(client: TestClient, monkeypatch) -> None:
+    from conftest import FakeCatalogClient
+    from orders_service import repository
+
+    def broken_create(*args, **kwargs):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(repository, "create_order", broken_create)
+    FakeCatalogClient.releases.clear()
+    with pytest.raises(RuntimeError):
+        client.post("/api/v1/orders", json={"product_id": 8, "quantity": 1})
+    assert FakeCatalogClient.releases == [(8, 1)]

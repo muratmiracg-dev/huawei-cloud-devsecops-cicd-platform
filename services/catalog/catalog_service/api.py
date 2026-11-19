@@ -61,3 +61,16 @@ def reserve(
         unit_price=product_record.price,
         remaining_stock=product_record.stock,
     )
+
+
+@router.post("/{product_id}/release", response_model=ProductRead)
+def release(
+    product_id: int,
+    payload: InventoryReservation,
+    database: Database,
+) -> ProductRead:
+    """Return units from a reservation that did not become an order."""
+    try:
+        return repository.release_inventory(database, product_id, payload.quantity)
+    except repository.ProductNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

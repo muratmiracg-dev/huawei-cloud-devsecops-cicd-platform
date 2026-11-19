@@ -21,6 +21,11 @@ from orders_service.schemas import ReservationResult  # noqa: E402
 
 
 class FakeCatalogClient:
+    releases: list[tuple[int, int]] = []
+
+    async def release(self, product_id: int, quantity: int) -> None:
+        FakeCatalogClient.releases.append((product_id, quantity))
+
     async def reserve(self, product_id: int, quantity: int) -> ReservationResult:
         if product_id == 404:
             raise CatalogServiceError("Product not found", status_code=404)

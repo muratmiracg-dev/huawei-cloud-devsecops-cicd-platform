@@ -109,3 +109,55 @@ def test_product_names_are_trimmed_and_blank_names_rejected(client: TestClient) 
     )
     assert created.status_code == 201
     assert created.json()["name"] == "Test Product"
+
+
+def test_concurrent_reservations_cannot_oversell(client: TestClient) -> None:
+    """A reservation committed between another request's read and write must count.
+
+    The second session reserves 3 of 5 units at the moment the first session is about
+    to write its own reservation of 3. Read-modify-write code overwrote the stock with
+    a stale value (both succeeded, stock 2 instead of an oversell refusal).
+    """
+    from catalog_service import repository
+    from catalog_service.database import SessionLocal, engine
+    from sqlalchemy import event
+
+    product = create_product(client, sku="RACE-001", stock=5)
+    concurrent_done = {"value": False}
+
+    def reserve_concurrently(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("UPDATE") and not concurrent_done["value"]:
+            concurrent_done["value"] = True
+            other = SessionLocal()
+            try:
+                repository.reserve_inventory(other, product["id"], 3)
+            finally:
+                other.close()
+
+    first = SessionLocal()
+    # The first request has already read the product, as a concurrent request would.
+    assert repository.get_product(first, product["id"]).stock == 5
+    event.listen(engine, "before_cursor_execute", reserve_concurrently)
+    try:
+        try:
+            repository.reserve_inventory(first, product["id"], 3)
+            first_succeeded = True
+        except repository.InsufficientStockError:
+            first_succeeded = False
+    finally:
+        event.remove(engine, "before_cursor_execute", reserve_concurrently)
+        first.close()
+
+    assert concurrent_done["value"]
+    assert not first_succeeded
+    assert client.get(f"/api/v1/products/{product['id']}").json()["stock"] == 2
+
+
+def test_release_returns_reserved_units(client: TestClient) -> None:
+    product = create_product(client, sku="RELEASE-001", stock=4)
+    client.post(f"/api/v1/products/{product['id']}/reserve", json={"quantity": 3})
+    response = client.post(f"/api/v1/products/{product['id']}/release", json={"quantity": 3})
+    assert response.status_code == 200
+    assert response.json()["stock"] == 4
+    missing = client.post("/api/v1/products/999999/release", json={"quantity": 1})
+    assert missing.status_code == 404
