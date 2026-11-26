@@ -1,5 +1,6 @@
 from decimal import Decimal
 from typing import Annotated
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -23,6 +24,7 @@ class InventoryReservation(BaseModel):
 
 
 class ReservationResult(BaseModel):
+    reservation_id: UUID
     product_id: int
     sku: str
     quantity: int

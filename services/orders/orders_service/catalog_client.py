@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 import httpx
 from fastapi import Depends
@@ -66,8 +67,8 @@ class CatalogClient:
             raise CatalogServiceError("Catalog reservation does not match the requested item")
         return reservation
 
-    async def release(self, product_id: int, quantity: int) -> None:
-        """Return units of a reservation that did not become an order."""
+    async def release(self, reservation_id: UUID) -> None:
+        """Return the units of a reservation that did not become an order."""
         try:
             async with httpx.AsyncClient(
                 base_url=self.base_url,
@@ -75,8 +76,7 @@ class CatalogClient:
                 transport=self._transport,
             ) as client:
                 response = await client.post(
-                    f"/api/v1/products/{product_id}/release",
-                    json={"quantity": quantity},
+                    f"/api/v1/products/reservations/{reservation_id}/release"
                 )
         except httpx.RequestError as exc:
             raise CatalogServiceError("Catalog service is unavailable") from exc

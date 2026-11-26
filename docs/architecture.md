@@ -42,9 +42,12 @@ flowchart TD
   WHERE id = ? AND stock >= n`, so concurrent catalog replicas cannot oversell.
 - An order is written only after a successful reservation. If the write fails, or a
   concurrent request with the same `X-Idempotency-Key` stored its order first, orders
-  calls `POST /api/v1/products/{id}/release` to hand the units back; a duplicate key
-  returns the stored order (200) rather than a 500. Release is best effort and logged
-  when it fails; a durable outbox is the next step for production.
+  calls `POST /api/v1/products/reservations/{reservation_id}/release` to hand the units
+  back; a duplicate key returns the stored order (200) rather than a 500. Each reservation
+  is recorded with its decrement in one transaction and can be released at most once, so
+  a retried compensation cannot double-credit stock and no caller can add stock without a
+  reservation. Release is best effort and logged when it fails; a durable outbox is the
+  next step for production.
 - AOM and Prometheus-compatible metrics provide operational feedback.
 - Orders-to-catalog calls enforce a finite timeout in the `(0, 60]` second range so invalid
   configuration cannot disable the dependency boundary or create excessive request stalls.

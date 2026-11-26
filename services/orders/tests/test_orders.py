@@ -152,7 +152,8 @@ def test_concurrent_duplicate_key_returns_existing_order_and_releases_stock(
 
     assert second.status_code == 200
     assert second.json()["id"] == first.json()["id"]
-    assert FakeCatalogClient.releases == [(7, 2)]
+    # Exactly the second request's reservation goes back, identified by its catalog id.
+    assert FakeCatalogClient.releases == [FakeCatalogClient.reservations[-1].reservation_id]
 
 
 def test_failed_order_write_releases_the_reservation(client: TestClient, monkeypatch) -> None:
@@ -166,4 +167,4 @@ def test_failed_order_write_releases_the_reservation(client: TestClient, monkeyp
     FakeCatalogClient.releases.clear()
     with pytest.raises(RuntimeError):
         client.post("/api/v1/orders", json={"product_id": 8, "quantity": 1})
-    assert FakeCatalogClient.releases == [(8, 1)]
+    assert FakeCatalogClient.releases == [FakeCatalogClient.reservations[-1].reservation_id]

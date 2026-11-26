@@ -99,13 +99,14 @@ async def add_order(
 async def _release_quietly(catalog: CatalogClient, reservation: ReservationResult) -> None:
     """Best-effort compensation; a failed release must not hide the original error.
 
-    Releases exactly what the catalog confirmed it reserved, so neither the
-    compensation call nor the log line is built from raw request input.
+    Releases the catalog-issued reservation id, so neither the compensation call nor
+    the log line is built from raw request input, and a retried release cannot return
+    the same units twice.
     """
     try:
-        await catalog.release(reservation.product_id, reservation.quantity)
+        await catalog.release(reservation.reservation_id)
     except CatalogServiceError:
         logger.warning(
             "Could not release a catalog reservation after a failed order write",
-            extra={"product_id": reservation.product_id, "quantity": reservation.quantity},
+            extra={"reservation_id": str(reservation.reservation_id)},
         )
