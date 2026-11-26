@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +20,7 @@ class OrderRead(OrderCreate):
 
 
 class ReservationResult(BaseModel):
+    reservation_id: UUID
     product_id: int
     sku: str
     quantity: int

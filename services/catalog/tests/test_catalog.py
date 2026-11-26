@@ -153,11 +153,30 @@ def test_concurrent_reservations_cannot_oversell(client: TestClient) -> None:
     assert client.get(f"/api/v1/products/{product['id']}").json()["stock"] == 2
 
 
-def test_release_returns_reserved_units(client: TestClient) -> None:
+def test_release_returns_reserved_units_once(client: TestClient) -> None:
     product = create_product(client, sku="RELEASE-001", stock=4)
-    client.post(f"/api/v1/products/{product['id']}/reserve", json={"quantity": 3})
-    response = client.post(f"/api/v1/products/{product['id']}/release", json={"quantity": 3})
+    reserved = client.post(f"/api/v1/products/{product['id']}/reserve", json={"quantity": 3})
+    reservation_id = reserved.json()["reservation_id"]
+    url = f"/api/v1/products/reservations/{reservation_id}/release"
+
+    response = client.post(url)
     assert response.status_code == 200
     assert response.json()["stock"] == 4
-    missing = client.post("/api/v1/products/999999/release", json={"quantity": 1})
+    # A retried compensation must not credit the same units twice.
+    again = client.post(url)
+    assert again.status_code == 200
+    assert again.json()["stock"] == 4
+
+
+def test_release_cannot_mint_stock_without_a_reservation(client: TestClient) -> None:
+    product = create_product(client, sku="RELEASE-002", stock=4)
+    missing = client.post(
+        "/api/v1/products/reservations/00000000-0000-4000-8000-000000000000/release"
+    )
     assert missing.status_code == 404
+    # The old product/quantity release endpoint no longer exists.
+    legacy = client.post(f"/api/v1/products/{product['id']}/release", json={"quantity": 50})
+    assert legacy.status_code in {404, 405}
+    malformed = client.post("/api/v1/products/reservations/not-a-uuid/release")
+    assert malformed.status_code == 422
+    assert client.get(f"/api/v1/products/{product['id']}").json()["stock"] == 4

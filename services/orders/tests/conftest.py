@@ -2,6 +2,7 @@ import os
 from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,23 +22,27 @@ from orders_service.schemas import ReservationResult  # noqa: E402
 
 
 class FakeCatalogClient:
-    releases: list[tuple[int, int]] = []
+    reservations: list[ReservationResult] = []
+    releases: list[UUID] = []
 
-    async def release(self, product_id: int, quantity: int) -> None:
-        FakeCatalogClient.releases.append((product_id, quantity))
+    async def release(self, reservation_id: UUID) -> None:
+        FakeCatalogClient.releases.append(reservation_id)
 
     async def reserve(self, product_id: int, quantity: int) -> ReservationResult:
         if product_id == 404:
             raise CatalogServiceError("Product not found", status_code=404)
         if quantity > 10:
             raise CatalogServiceError("Insufficient stock", status_code=409)
-        return ReservationResult(
+        reservation = ReservationResult(
+            reservation_id=uuid4(),
             product_id=product_id,
             sku=f"SKU-{product_id}",
             quantity=quantity,
             unit_price=Decimal("12.50"),
             remaining_stock=10 - quantity,
         )
+        FakeCatalogClient.reservations.append(reservation)
+        return reservation
 
 
 @pytest.fixture

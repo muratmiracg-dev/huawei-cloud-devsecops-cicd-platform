@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -48,13 +49,16 @@ def reserve(
     database: Database,
 ) -> ReservationResult:
     try:
-        product_record = repository.reserve_inventory(database, product_id, payload.quantity)
+        product_record, reservation = repository.reserve_inventory(
+            database, product_id, payload.quantity
+        )
     except repository.ProductNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except repository.InsufficientStockError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
     return ReservationResult(
+        reservation_id=reservation.id,
         product_id=product_record.id,
         sku=product_record.sku,
         quantity=payload.quantity,
@@ -63,14 +67,10 @@ def reserve(
     )
 
 
-@router.post("/{product_id}/release", response_model=ProductRead)
-def release(
-    product_id: int,
-    payload: InventoryReservation,
-    database: Database,
-) -> ProductRead:
-    """Return units from a reservation that did not become an order."""
+@router.post("/reservations/{reservation_id}/release", response_model=ProductRead)
+def release(reservation_id: UUID, database: Database) -> ProductRead:
+    """Return the units of a reservation that did not become an order (idempotent)."""
     try:
-        return repository.release_inventory(database, product_id, payload.quantity)
-    except repository.ProductNotFoundError as exc:
+        return repository.release_reservation(database, str(reservation_id))
+    except repository.ReservationNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
